@@ -1,0 +1,225 @@
+import {FormEvent, KeyboardEvent, useEffect, useRef, useState} from 'react';
+import ReactMarkdown from 'react-markdown';
+import {useRequiredAuth} from '@/contexts/RequiredAuthContext';
+import {
+  aiAgentApiService,
+  type AiAgentPendingAction,
+  type AiAgentRole,
+  type DeadlineDecision,
+} from '@/apis/services/ai-agent-api';
+import DeadlineDecisionModal from './DeadlineDecisionModal';
+import styles from './index.module.scss';
+
+interface WorkflowMessage {
+  id: number;
+  sender: 'user' | 'agent';
+  text: string;
+}
+
+const READ_ONLY_QUICK_PROMPTS = [
+  'What assignments are due in the next 14 days?',
+  'List my courses.',
+];
+
+const INSTRUCTOR_QUICK_PROMPTS = [
+  ...READ_ONLY_QUICK_PROMPTS,
+  'Help me change an assignment deadline.',
+];
+
+const getAgentRole = (level: string | null): AiAgentRole =>
+  level === 'INSTRUCTOR' ? 'INSTRUCTOR' : 'STUDENT';
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  return 'Workflow is temporarily unavailable. Please try again.';
+};
+
+/** CommonMark treats a single newline as a space; keep the agent's line breaks. */
+const withMarkdownLineBreaks = (text: string) =>
+  text.replace(/\r\n/g, '\n').replace(/([^\n])\n(?!\n)/g, '$1  \n');
+
+const AgentMarkdown = ({text}: {text: string}) => (
+  <ReactMarkdown
+    components={{
+      a: ({href, children}) => (
+        <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+      ),
+    }}
+  >
+    {withMarkdownLineBreaks(text)}
+  </ReactMarkdown>
+);
+
+const WorkflowPanel = () => {
+  const {user} = useRequiredAuth();
+  const role = getAgentRole(user.level);
+  const canChangeDeadlines = role === 'INSTRUCTOR';
+  const quickPrompts = canChangeDeadlines ? INSTRUCTOR_QUICK_PROMPTS : READ_ONLY_QUICK_PROMPTS;
+  const nextMessageId = useRef(1);
+  const conversationEndRef = useRef<HTMLDivElement | null>(null);
+  const [input, setInput] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [pendingAction, setPendingAction] = useState<AiAgentPendingAction | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] = useState('');
+  const [decisionError, setDecisionError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<WorkflowMessage[]>([
+    {
+      id: 0,
+      sender: 'agent',
+      text: role === 'INSTRUCTOR'
+        ? 'I can check your courses and teaching deadlines, or prepare an assignment deadline change for your approval.'
+        : 'I can check your courses and upcoming assignment deadlines.',
+    },
+  ]);
+
+  const roleLabel = role === 'INSTRUCTOR' ? 'Instructor workflow' : 'Student workflow';
+
+  useEffect(() => {
+    conversationEndRef.current?.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+  }, [isSending, messages, pendingAction]);
+
+  const addMessage = (sender: WorkflowMessage['sender'], text: string) => {
+    setMessages(current => [
+      ...current,
+      {id: nextMessageId.current++, sender, text},
+    ]);
+  };
+
+  const sendMessage = async (message: string) => {
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage || isSending || pendingAction) return;
+
+    addMessage('user', trimmedMessage);
+    setInput('');
+    setIsSending(true);
+
+    try {
+      const response = await aiAgentApiService.chat({message: trimmedMessage, role});
+      if (response.pendingAction && !canChangeDeadlines) {
+        addMessage('agent', 'Students can view assignment deadlines, but only instructors can change them.');
+      } else if (response.pendingAction) {
+        setPendingAction(response.pendingAction);
+        setPendingConfirmation(response.reply);
+        setDecisionError(null);
+      } else {
+        addMessage('agent', response.reply);
+      }
+    } catch (error) {
+      addMessage('agent', getErrorMessage(error));
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void sendMessage(input);
+  };
+
+  const handleInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      void sendMessage(input);
+    }
+  };
+
+  const handleDecision = async (decision: DeadlineDecision) => {
+    if (!canChangeDeadlines || !pendingAction || isSending) return;
+    setDecisionError(null);
+    setIsSending(true);
+
+    try {
+      const response = await aiAgentApiService.decideDeadlineChange({
+        actionId: pendingAction.actionId,
+        decision,
+      });
+      addMessage(
+        'agent',
+        response.reply || (decision === 'ALLOW'
+          ? 'The deadline change was approved.'
+          : 'The deadline change was rejected.'),
+      );
+      setPendingAction(response.pendingAction);
+      setPendingConfirmation(response.pendingAction ? response.reply : '');
+    } catch (error) {
+      setDecisionError(getErrorMessage(error));
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <section className={styles.toolCard} aria-labelledby="workflow-title">
+      <div className={styles.toolHeader}>
+        <div className={`${styles.toolIcon} ${styles.workflowIcon}`} aria-hidden="true">W</div>
+        <div>
+          <h2 id="workflow-title">Workflow</h2>
+          <span className={`${styles.badge} ${styles.workflowBadge}`}>Actions · Planning · Organization</span>
+        </div>
+      </div>
+      <p className={styles.toolDescription}>
+        Ask the AI Agent to inspect LMS data and complete supported tasks. Consequential changes always require approval.
+      </p>
+      <div className={styles.divider}/>
+
+      <div className={styles.quickPrompts} aria-label="Suggested workflow prompts">
+        <p>Try asking</p>
+        {quickPrompts.map(prompt => (
+          <button
+            type="button"
+            key={prompt}
+            onClick={() => void sendMessage(prompt)}
+            disabled={isSending || Boolean(pendingAction)}
+          >
+            {prompt}
+          </button>
+        ))}
+      </div>
+
+      <div className={styles.workflowConversation} aria-live="polite" aria-busy={isSending}>
+        <div className={styles.rolePill}>{roleLabel}</div>
+        {messages.map((message, index) => (
+          <div
+            key={message.id}
+            className={`${styles.message} ${message.sender === 'user' ? styles.userMessage : styles.agentMessage} ${index === messages.length - 1 ? styles.lastMessage : ''}`}
+          >
+            {message.sender === 'agent' ? <AgentMarkdown text={message.text}/> : message.text}
+          </div>
+        ))}
+
+        {isSending ? <div className={styles.agentStatus} role="status">AI Agent is working…</div> : null}
+        <div ref={conversationEndRef}/>
+      </div>
+
+      <form className={styles.workflowInput} onSubmit={handleSubmit}>
+        <label className="sr-only" htmlFor="workflow-message">Tell Workflow what to do</label>
+        <textarea
+          id="workflow-message"
+          value={input}
+          onChange={event => setInput(event.target.value)}
+          onKeyDown={handleInputKeyDown}
+          placeholder={pendingAction ? 'Approve or reject the pending change above.' : 'Tell Workflow what to do…'}
+          disabled={isSending || Boolean(pendingAction)}
+          rows={3}
+        />
+        <div className={styles.inputFooter}>
+          <span>Enter to send · Shift+Enter for a new line</span>
+          <button type="submit" disabled={isSending || Boolean(pendingAction) || !input.trim()}>
+            Run
+          </button>
+        </div>
+      </form>
+
+      {canChangeDeadlines && pendingAction ? (
+        <DeadlineDecisionModal
+          confirmationText={pendingConfirmation}
+          errorMessage={decisionError}
+          isSubmitting={isSending}
+          onDecision={decision => void handleDecision(decision)}
+        />
+      ) : null}
+    </section>
+  );
+};
+
+export default WorkflowPanel;

@@ -2,28 +2,30 @@
 import {useNavigate} from "react-router-dom";
 import {useTranslation} from "react-i18next";
 import styles from "./PageHeader.module.scss";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
 import {useCourseWorkspaceStore} from "../stores/useCourseWorkspaceStore";
 
-export const PageHeader: React.FC = () => {
+interface PageHeaderProps {
+  canEditCourse?: boolean;
+  canManageMaterials?: boolean;
+}
+
+export const PageHeader: React.FC<PageHeaderProps> = ({
+  canEditCourse = false,
+  canManageMaterials = false,
+}) => {
   const navigate = useNavigate();
   const {t} = useTranslation("course");
-  const {workspaceMode, setWorkspaceMode, role, course} = useCourseWorkspaceStore();
+  const {workspaceMode, setWorkspaceMode, course} = useCourseWorkspaceStore();
   
   const renderActionButtons = useMemo(() => {
     if (workspaceMode === "view") {
-      return role === "teacher" ? (
-        <React.Fragment>
-          <button className={styles.publishButton}>
-            {t("detail.manageGroup")}
-          </button>
-          <button
-            className={styles.publishButton}
-            onClick={() => setWorkspaceMode("edit")}
-          >
-            {t("detail.editCourse")}
-          </button>
-        </React.Fragment>
+      return canEditCourse || canManageMaterials ? (
+        <button
+          className={styles.secondaryButton}
+          onClick={() => setWorkspaceMode("edit")}
+        >
+          {canEditCourse ? t("detail.editCourse") : t("detail.manageContent")}
+        </button>
       ) : null;
     }
     
@@ -38,7 +40,12 @@ export const PageHeader: React.FC = () => {
         >
           {t("addContent.cancelButton")}
         </button>
-        <button className={styles.publishButton}>
+        <button
+          className={styles.publishButton}
+          onClick={() => {
+            if (workspaceMode === 'edit') setWorkspaceMode('view');
+          }}
+        >
           {workspaceMode === "edit"
             ? t("addContent.saveButton")
             : t("addContent.publishButton")
@@ -46,13 +53,15 @@ export const PageHeader: React.FC = () => {
         </button>
       </React.Fragment>
     );
-  }, [workspaceMode, t, navigate, setWorkspaceMode]);
+  }, [canEditCourse, canManageMaterials, workspaceMode, t, navigate, setWorkspaceMode]);
   
   return (
     <div className={styles.workspaceHeader}>
       <button
         className={styles.backButton}
-        onClick={() => navigate(-1)}
+        onClick={() => navigate("/")}
+        aria-label={t("detail.backToDashboard")}
+        title={t("detail.backToDashboard")}
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M19 12H5M12 19l-7-7 7-7"/>
@@ -70,7 +79,6 @@ export const PageHeader: React.FC = () => {
       </div>
       
       <div className={styles.headerActions}>
-        <LanguageSwitcher/>
         {renderActionButtons}
       </div>
     </div>

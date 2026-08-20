@@ -6,12 +6,40 @@ export interface ApiClientConfig {
   timeout?: number;
   headers?: Record<string, string>;
   withCredentials?: boolean;
+  /**
+   * Path that exchanges the refresh cookie for a new access token. Set it to
+   * enable transparent recovery from an expired token; leave it off and a 401
+   * is simply reported to the caller.
+   */
+  refreshPath?: string;
+  /** Called when the session cannot be recovered and the user must log in. */
+  onSessionExpired?: () => void;
 }
 
 export interface RequestConfig extends Omit<AxiosRequestConfig, 'url' | 'method'> {
   skipAuth?: boolean;
   retryCount?: number;
+  /** Set internally once a request has been retried after a refresh. */
+  isRetryAfterRefresh?: boolean;
 }
+
+interface RefreshCandidate {
+  url?: string;
+  skipAuth?: boolean;
+  isRetryAfterRefresh?: boolean;
+}
+
+/** Anonymous auth calls must never revive or rotate an older user's session. */
+export const shouldAttemptTokenRefresh = (
+  refreshPath: string | undefined,
+  request: RefreshCandidate | undefined,
+): boolean => Boolean(
+  refreshPath
+  && request
+  && !request.isRetryAfterRefresh
+  && !request.skipAuth
+  && request.url !== refreshPath
+);
 
 export class ApiClient {
   private readonly client: AxiosInstance;
@@ -61,9 +89,18 @@ export class ApiClient {
   
   private handleRequest(config: InternalAxiosRequestConfig): InternalAxiosRequestConfig {
     config.headers = config.headers || {};
-    
-    config.headers['X-Request-Timestamp'] = Date.now().toString();
-    
+
+    // Let the browser supply the multipart boundary. Keeping the instance's
+    // application/json default on FormData produces an invalid upload request.
+    if (config.data instanceof FormData && 'delete' in config.headers) {
+      config.headers.delete('Content-Type');
+    }
+
+    // No X-Request-Timestamp header. It appears in no API contract, nothing
+    // reads it, and being a custom header it forces a CORS preflight that the
+    // server rejects: its Access-Control-Allow-Headers lists the name as
+    // "field-x-request-timestamp", so every cross-origin call fails outright.
+
     const requestConfig = config as unknown as RequestConfig;
     if (requestConfig.skipAuth !== undefined && requestConfig.skipAuth) {
       delete config.headers.Authorization;
@@ -79,10 +116,11 @@ export class ApiClient {
       }
     }
     
-    console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, {
-      headers: config.headers,
-      data: config.data || ''
-    });
+    if (import.meta.env.DEV) {
+      // Never print request headers or bodies: they may contain bearer tokens,
+      // passwords, assignment submissions, or uploaded-file metadata.
+      console.debug(`[API Request] ${config.method?.toUpperCase()} ${config.url}`);
+    }
     
     return config;
   }
@@ -92,12 +130,11 @@ export class ApiClient {
   }
   
   private handleResponse(response: AxiosResponse): AxiosResponse {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[API Response] ${response.config.method?.toUpperCase()} ${response.config.url}`, {
-        status: response.status,
-        headers: response.headers,
-        data: response.data
-      });
+    if (import.meta.env.DEV) {
+      // Response bodies can contain access tokens and student data.
+      console.debug(
+        `[API Response] ${response.config.method?.toUpperCase()} ${response.config.url} ${response.status}`
+      );
     }
     
     return response;
@@ -114,16 +151,83 @@ export class ApiClient {
       return this.handleAuthError(error);
     }
     
-    console.error('[API Error]', apiError);
+    // Keep diagnostics useful without logging response bodies, which may
+    // contain private course or student data.
+    console.error(`[API Error] ${apiError.code}: ${apiError.message}`);
     return Promise.reject(apiError);
   }
   
+  /**
+   * Recovers from an expired access token, once, then replays the request.
+   *
+   * The access token is short-lived while the refresh cookie lasts about two
+   * weeks, so a 401 mid-session is the normal course of events rather than a
+   * real authentication failure. Without this every request starts failing the
+   * moment the token ages out and the user is thrown back to the login screen
+   * mid-task.
+   */
   private async handleAuthError(error: AxiosError): Promise<never> {
+    const original = error.config as (InternalAxiosRequestConfig & RequestConfig) | undefined;
+
+    const canRetry = shouldAttemptTokenRefresh(this.config.refreshPath, original);
+
+    if (canRetry) {
+      try {
+        await this.refreshAccessToken();
+        original.isRetryAfterRefresh = true;
+        original.headers.Authorization = `Bearer ${this.accessToken}`;
+        return await this.client.request(original) as never;
+      } catch {
+        this.endSession();
+      }
+    }
+
     return Promise.reject({
       code: 401,
       message: 'Authentication required',
       details: error.response?.data
     });
+  }
+
+  /**
+   * Fetches a new access token, coalescing concurrent callers.
+   *
+   * A dashboard fires several requests at once, so an expired token produces a
+   * burst of 401s. They share one refresh: without this they would each rotate
+   * the refresh cookie, and every rotation but the last would be invalidated.
+   */
+  private refreshInFlight?: Promise<void>;
+
+  private refreshAccessToken(): Promise<void> {
+    if (this.refreshInFlight) return this.refreshInFlight;
+
+    this.refreshInFlight = (async () => {
+      // A bare axios call: the instance interceptor would recurse on failure.
+      const response = await axios.post<ApiResponse<string>>(
+        `${this.config.baseURL}${this.config.refreshPath}`,
+        undefined,
+        {withCredentials: true, timeout: this.config.timeout}
+      );
+
+      // `data` here is the token itself, not an object wrapping one.
+      const token = response.data?.data;
+      if (typeof token !== 'string' || token.length === 0) {
+        throw new Error('Refresh response carried no access token');
+      }
+
+      this.setAccessToken(token);
+      localStorage.setItem('accToken', token);
+    })();
+
+    return this.refreshInFlight.finally(() => {
+      this.refreshInFlight = undefined;
+    });
+  }
+
+  private endSession(): void {
+    this.clearAccessToken();
+    localStorage.removeItem('accToken');
+    this.config.onSessionExpired?.();
   }
   
   private mergeRequestConfig(config?: RequestConfig): AxiosRequestConfig {

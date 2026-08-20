@@ -9,23 +9,30 @@ const LMSHome = lazy(() => import("./pages/LmsHomePage"));
 const CourseCataloguePage = lazy(() => import("./pages/CourseCataloguePage"));
 const CourseWorkspacePage = lazy(() => import("./pages/CourseWorkspacePage"));
 const CourseCreatePage = lazy(() => import("./pages/CourseWorkspacePage/CourseCreatePage"));
+const AssignmentDetailPage = lazy(() => import('./pages/AssignmentDetailPage'));
+const AssignmentEditorPage = lazy(() => import('./pages/AssignmentEditorPage'));
+const AssignmentGradingPage = lazy(() => import('./pages/AssignmentGradingPage'));
+const AssignmentSubmissionPage = lazy(() => import('./pages/AssignmentSubmissionPage'));
+const NotificationSubjectPage = lazy(() => import('./pages/NotificationSubjectPage'));
+const CourseEventsPage = lazy(() => import('./pages/CourseEventsPage'));
+const CourseAnnouncementsPage = lazy(() => import('./pages/CourseAnnouncementsPage'));
+const CourseSchedulePage = lazy(() => import('./pages/CourseSchedulePage'));
+const CourseGroupsPage = lazy(() => import('./pages/CourseGroupsPage'));
+const GroupSetDetailPage = lazy(() => import('./pages/GroupSetDetailPage'));
+const QuizPage = lazy(() => import('./pages/QuizPage'));
+const QuizEditorPage = lazy(() => import('./pages/QuizEditorPage'));
+const QuizGradingPage = lazy(() => import('./pages/QuizGradingPage'));
 const Post = lazy(() => import("./pages/post"));
 const PostDetail = lazy(() => import("./sections/posts/post-detail"));
-const Roster = lazy(() => import("./pages/roster"));
+const Roster = lazy(() => import("./pages/RosterPage"));
 const Profile = lazy(() => import("./pages/profile"));
 const CreateContent = lazy(() => import("./sections/dashboard/new-content/create-content"));
-const CreateGroup = lazy(() => import("./sections/roster/createGroup"));
-const Chat = lazy(() => import("./pages/chat"));
 const AIBot = lazy(() => import("./pages/aibot"));
 const Settings = lazy(() => import("./pages/settings"));
 const Login = lazy(() => import("@/pages/LoginPage"));
 const Signup = lazy(() => import("./pages/signup/SignUpView"));
-const LinkedinReRouteHandler = lazy(() => import("./pages/rerouteHandler/LinkedinReRouteHandler"));
-const SignupSocialMedia = lazy(() => import("./pages/./SignupSocialMedia"));
-const GoogleReRouteHandler = lazy(() => import("./pages/rerouteHandler/GoogleReRouteHandler"));
-const MicrosoftRerouteHandler = lazy(() => import("./pages/rerouteHandler/MicrosoftReRouteHandler"));
-const FacebookReRouteHandler = lazy(() => import("./pages/rerouteHandler/FacebookReRouteHandler"))
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"))
+const AdminConsolePage = lazy(() => import('./pages/AdminConsolePage'));
 
 const App = () => {
   return (
@@ -49,14 +56,6 @@ const App = () => {
                    }
             />
             
-            <Route path="/signupsocialmedia"
-                   element={
-                     <AuthLayout>
-                       <SignupSocialMedia/>
-                     </AuthLayout>
-                   }
-            />
-            
             <Route path="/forgotpassword"
                    element={
                      <AuthLayout>
@@ -65,39 +64,27 @@ const App = () => {
                    }
             />
             
-            <Route path="login/oauth2/code/microsoft"
-                   element={
-                     <Suspense fallback={<div>Loading...</div>}>
-                       <MicrosoftRerouteHandler/>
-                     </Suspense>
-                   }
-            />
-            <Route path="login/oauth2/code/google"
-                   element={
-                     <Suspense fallback={<div>Loading...</div>}>
-                       <GoogleReRouteHandler/>
-                     </Suspense>
-                   }
-            />
-            <Route path="login/oauth2/code/linkedin"
-                   element={
-                     <Suspense fallback={<div>Loading...</div>}>
-                       <LinkedinReRouteHandler/>
-                     </Suspense>
-                   }
-            />
-            <Route path="login/oauth2/code/facebook"
-                   element={
-                     <Suspense fallback={<div>Loading...</div>}>
-                       <FacebookReRouteHandler/>
-                     </Suspense>
-                   }
-            />
-            
             <Route path="/" element={<RequiredAuthProvider><Layout/></RequiredAuthProvider>}>
               <Route index element={<LMSHome/>}/>
               <Route path="course" element={<CourseCataloguePage/>}/>
               <Route path="course/:courseId" element={<CourseWorkspacePage/>}/>
+              <Route path="course/:courseId/assignments/:assignmentId" element={<AssignmentDetailPage/>}/>
+              <Route path="course/:courseId/assignments/new" element={<AssignmentEditorPage/>}/>
+              <Route path="course/:courseId/assignments/:assignmentId/edit" element={<AssignmentEditorPage/>}/>
+              <Route path="course/:courseId/assignments/:assignmentId/grading" element={<AssignmentGradingPage/>}/>
+              <Route path="course/:courseId/assignments/:assignmentId/submissions/:submissionId" element={<AssignmentSubmissionPage/>}/>
+              <Route path="course/:courseId/announcements/:subjectId" element={<NotificationSubjectPage kind="announcement"/>}/>
+              <Route path="course/:courseId/announcements" element={<CourseAnnouncementsPage/>}/>
+              <Route path="course/:courseId/events" element={<CourseEventsPage/>}/>
+              <Route path="course/:courseId/events/:eventId" element={<CourseEventsPage/>}/>
+              <Route path="course/:courseId/schedule" element={<CourseSchedulePage/>}/>
+              <Route path="course/:courseId/groups" element={<CourseGroupsPage/>}/>
+              <Route path="course/:courseId/group-sets/:groupSetId" element={<GroupSetDetailPage/>}/>
+              <Route path="course/:courseId/weeks/:subjectId" element={<NotificationSubjectPage kind="week"/>}/>
+              <Route path="course/:courseId/quizzes/new" element={<QuizEditorPage/>}/>
+              <Route path="course/:courseId/quizzes/:quizId" element={<QuizPage/>}/>
+              <Route path="course/:courseId/quizzes/:quizId/edit" element={<QuizEditorPage/>}/>
+              <Route path="course/:courseId/quizzes/:quizId/grading" element={<QuizGradingPage/>}/>
               <Route path="post" element={<Post/>}/>
               <Route path="post/:postId" element={<PostDetail/>}/>
               <Route path="roster" element={<Roster/>}/>
@@ -105,10 +92,9 @@ const App = () => {
               <Route path="profile" element={<Profile/>}/>
               <Route path="course/add-content" element={<CourseCreatePage/>}/>
               <Route path="create/:contentType" element={<CreateContent/>}/>
-              <Route path="roster/create" element={<CreateGroup/>}/>
-              <Route path="chat" element={<Chat/>}/>
               <Route path="aibot" element={<AIBot/>}/>
               <Route path="settings" element={<Settings/>}/>
+              <Route path="admin" element={<AdminConsolePage/>}/>
             </Route>
           </Routes>
         </Suspense>

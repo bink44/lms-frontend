@@ -1,0 +1,532 @@
+.page {
+    min-height: calc(100vh - 110px);
+    padding: 2rem;
+    background: #eef4fb;
+    color: #1f2a3d;
+}
+
+.pageHeader {
+    max-width: 92rem;
+    margin: 0 auto 1.75rem;
+
+    h1 {
+        margin: 0.2rem 0 0.35rem;
+        color: #192338;
+        font-size: clamp(2rem, 3vw, 3rem);
+        font-weight: 600;
+        line-height: 1.12;
+    }
+
+    > p:last-child {
+        margin: 0;
+        color: #60708e;
+        font-size: 1rem;
+    }
+}
+
+.eyebrow {
+    margin: 0;
+    color: #58709b;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+}
+
+.workspaceGrid {
+    display: grid;
+    max-width: 92rem;
+    margin: 0 auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+    align-items: stretch;
+}
+
+.toolCard {
+    display: flex;
+    min-width: 0;
+    min-height: 46rem;
+    overflow: hidden;
+    flex-direction: column;
+    padding: 1.65rem;
+    border: 1px solid #c8d7ef;
+    border-radius: 1.5rem;
+    background: #fff;
+    box-shadow: 0 18px 50px rgb(56 81 120 / 0.07);
+}
+
+.toolHeader {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+
+    h2 {
+        margin: 0 0 0.35rem;
+        color: #192338;
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+}
+
+.toolIcon {
+    display: grid;
+    width: 3.25rem;
+    height: 3.25rem;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    font-size: 1rem;
+    font-weight: 700;
+    place-items: center;
+}
+
+.studyIcon {
+    background: #dcecff;
+    color: #285dc8;
+}
+
+.workflowIcon {
+    background: #eee1ff;
+    color: #7441c5;
+}
+
+.badge,
+.rolePill {
+    display: inline-flex;
+    width: fit-content;
+    padding: 0.28rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 600;
+}
+
+.studyBadge {
+    background: #e1f1ff;
+    color: #2c5bc7;
+}
+
+.workflowBadge {
+    background: #f0e5ff;
+    color: #7040bc;
+}
+
+.toolDescription {
+    min-height: 3rem;
+    margin: 1.35rem 0 0;
+    color: #60708e;
+    line-height: 1.55;
+}
+
+.divider {
+    height: 1px;
+    margin: 1rem 0 1.1rem;
+    background: #dbe4f2;
+}
+
+.studyChat {
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
+
+    > div {
+        min-height: 100%;
+    }
+}
+
+.loading {
+    display: grid;
+    min-height: 26rem;
+    color: #60708e;
+    place-items: center;
+}
+
+.quickPrompts {
+    display: grid;
+    gap: 0.65rem;
+
+    p {
+        margin: 0 0 0.1rem;
+        color: #60708e;
+        font-size: 0.85rem;
+    }
+
+    button {
+        width: 100%;
+        padding: 0.75rem 0.9rem;
+        border: 1px solid #cbdaf2;
+        border-radius: 0.75rem;
+        background: #f8faff;
+        color: #34496c;
+        cursor: pointer;
+        font: inherit;
+        text-align: left;
+        transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+
+        &:hover:not(:disabled) {
+            border-color: #8ba8e0;
+            background: #f1f5ff;
+            transform: translateY(-1px);
+        }
+
+        &:disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+        }
+    }
+}
+
+.workflowConversation {
+    min-height: 0;
+    max-height: 28rem;
+    margin-top: 1.1rem;
+    padding: 1rem;
+    overflow-y: auto;
+    border: 1px solid #d4def0;
+    border-radius: 1rem;
+    background: #fbfcff;
+    scrollbar-gutter: stable;
+}
+
+.rolePill {
+    margin-bottom: 0.85rem;
+    background: #f0e5ff;
+    color: #7040bc;
+}
+
+.message {
+    width: fit-content;
+    max-width: 88%;
+    margin-bottom: 0.75rem;
+    padding: 0.72rem 0.9rem;
+    border-radius: 0.9rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.lastMessage {
+    margin-bottom: 0;
+}
+
+.agentMessage {
+    border: 1px solid #dce5f3;
+    border-bottom-left-radius: 0.25rem;
+    background: #fff;
+    color: #2f405d;
+    white-space: normal;
+
+    p {
+        margin: 0 0 0.5rem;
+    }
+
+    ul,
+    ol {
+        margin: 0 0 0.5rem;
+        padding-left: 1.2rem;
+    }
+
+    li {
+        margin: 0.15rem 0;
+    }
+
+    li > p {
+        margin: 0;
+    }
+
+    strong {
+        font-weight: 700;
+        color: #1a2740;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+        margin: 0.4rem 0 0.3rem;
+        color: #1a2740;
+        font-size: 0.95rem;
+        font-weight: 700;
+        line-height: 1.3;
+    }
+
+    code {
+        padding: 0.05rem 0.3rem;
+        border-radius: 0.25rem;
+        background: #eef3fb;
+        font-size: 0.88em;
+    }
+
+    pre {
+        margin: 0.4rem 0;
+        padding: 0.65rem 0.75rem;
+        overflow-x: auto;
+        border-radius: 0.5rem;
+        background: #f3f6fb;
+    }
+
+    pre code {
+        padding: 0;
+        background: transparent;
+    }
+
+    a {
+        color: #3554d1;
+        text-decoration: underline;
+    }
+
+    > *:first-child {
+        margin-top: 0;
+    }
+
+    > *:last-child {
+        margin-bottom: 0;
+    }
+}
+
+.userMessage {
+    margin-left: auto;
+    border-bottom-right-radius: 0.25rem;
+    background: #465fe0;
+    color: #fff;
+}
+
+.modalBackdrop {
+    position: fixed;
+    z-index: 2000;
+    display: grid;
+    padding: 1.25rem;
+    background: rgb(19 30 50 / 0.48);
+    inset: 0;
+    place-items: center;
+}
+
+.deadlineModal {
+    width: min(100%, 34rem);
+    padding: 1.4rem;
+    border: 1px solid #d9e2f1;
+    border-radius: 1.15rem;
+    background: #fff;
+    box-shadow: 0 24px 70px rgb(20 38 70 / 0.24);
+    color: #263650;
+}
+
+.modalHeader {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+
+    h3 {
+        margin: 0.15rem 0 0;
+        color: #192338;
+        font-size: 1.25rem;
+        line-height: 1.25;
+    }
+}
+
+.modalIcon {
+    display: grid;
+    width: 2.65rem;
+    height: 2.65rem;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: #fff1cc;
+    color: #8b5a00;
+    font-size: 1.2rem;
+    font-weight: 800;
+    place-items: center;
+}
+
+.modalEyebrow {
+    color: #7b5a0c;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.modalCopy {
+    max-height: 14rem;
+    margin: 1.15rem 0 0;
+    padding: 0.9rem;
+    overflow-y: auto;
+    border: 1px solid #dbe4f1;
+    border-radius: 0.8rem;
+    background: #f8faff;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.modalWarning {
+    margin: 0.85rem 0 0;
+    padding: 0.75rem 0.85rem;
+    border-left: 3px solid #d69a17;
+    border-radius: 0.3rem 0.65rem 0.65rem 0.3rem;
+    background: #fff9e8;
+    color: #624a12;
+    font-size: 0.86rem;
+    line-height: 1.45;
+}
+
+.modalError {
+    margin: 0.75rem 0 0;
+    padding: 0.7rem 0.8rem;
+    border-radius: 0.65rem;
+    background: #fff0f0;
+    color: #a12c2c;
+    font-size: 0.86rem;
+    line-height: 1.4;
+}
+
+.modalActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.65rem;
+    margin-top: 1.1rem;
+
+    button {
+        min-width: 6rem;
+        padding: 0.65rem 1rem;
+        border: 1px solid #b6c4da;
+        border-radius: 0.65rem;
+        background: #fff;
+        color: #34445d;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 600;
+
+        &:disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+        }
+    }
+
+    .allowButton {
+        border-color: #465fe0;
+        background: #465fe0;
+        color: #fff;
+    }
+}
+
+.agentStatus {
+    margin-top: 0.5rem;
+    color: #60708e;
+    font-size: 0.85rem;
+}
+
+.workflowInput {
+    display: flex;
+    min-height: 12.75rem;
+    margin-top: 1.1rem;
+    margin-bottom: 0.6rem;
+    overflow: hidden;
+    flex-direction: column;
+    border: 1px solid #cbd5e0;
+    border-radius: 1rem;
+    background: #fff;
+
+    textarea {
+        display: block;
+        width: 100%;
+        min-height: 5.5rem;
+        flex: 1;
+        padding: 0.9rem 1rem 0.25rem;
+        resize: none;
+        border: 0;
+        outline: 0;
+        color: #243451;
+        font: inherit;
+
+        &::placeholder {
+            color: #94a4bf;
+        }
+
+        &:disabled {
+            background: #f7f9fc;
+            cursor: not-allowed;
+        }
+    }
+}
+
+.inputFooter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.55rem 0.7rem 0.7rem 1rem;
+
+    span {
+        color: #8796af;
+        font-size: 0.72rem;
+    }
+
+    button {
+        min-width: 5rem;
+        padding: 0.6rem 1rem;
+        border: 0;
+        border-radius: 0.7rem;
+        background: #465fe0;
+        color: #fff;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 600;
+
+        &:disabled {
+            cursor: not-allowed;
+            opacity: 0.45;
+        }
+    }
+}
+
+.quickPrompts button:focus-visible,
+.modalActions button:focus-visible,
+.workflowInput button:focus-visible,
+.workflowInput textarea:focus-visible {
+    outline: 3px solid #1d4ed8;
+    outline-offset: 2px;
+}
+
+@media (max-width: 1100px) {
+    .workspaceGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .toolCard {
+        min-height: 42rem;
+    }
+}
+
+@media (max-width: 700px) {
+    .page {
+        min-height: 0;
+        padding: 1.25rem 0.8rem;
+    }
+
+    .pageHeader {
+        margin-bottom: 1.25rem;
+
+        h1 {
+            font-size: 1.8rem;
+        }
+    }
+
+    .workspaceGrid {
+        gap: 1rem;
+    }
+
+    .toolCard {
+        min-height: 38rem;
+        padding: 1rem;
+        border-radius: 1rem;
+    }
+
+    .toolDescription {
+        min-height: 0;
+    }
+
+    .inputFooter span {
+        display: none;
+    }
+
+    .inputFooter {
+        justify-content: flex-end;
+    }
+}

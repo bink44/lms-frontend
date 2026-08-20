@@ -2,11 +2,11 @@
 import {calculateLayout, getColumns, getScreenSize} from '../utils/layoutCalculations';
 import {useContainerWidth} from 'react-grid-layout';
 import ChatComponent from "@/pages/LmsHomePage/components/ChatComponent.js";
-import AssignmentComponent from "../../../sections/assignments/AssignmentComponent.jsx";
+import AssignmentComponent from "@/sections/assignments/AssignmentComponent";
 import CourseComponent from "../components/CourseComponent.js";
-import LearningScheduleComponent from "../../../sections/learning_schedule/LearningScheduleComponent.jsx";
-import PostComponent from "../../../sections/posts/PostComponent.jsx";
-import SkillGraphComponent from "../../../sections/skill_graph/SkillGraphComponent.jsx";
+import LearningScheduleComponent from "@/sections/learning_schedule/LearningScheduleComponent";
+import PostComponent from "@/sections/posts/PostComponent";
+import AverageScoreComponent from '../components/AverageScoreComponent';
 import {GridLayoutItem, ScreenSizeInfo, WidgetConfig} from "@/pages/LmsHomePage/types";
 
 interface UseWidgetLayoutResult {
@@ -25,15 +25,15 @@ export const useWidgetLayout = (): UseWidgetLayoutResult => {
   const courseRef = useRef<HTMLDivElement>(null);
   const learningScheduleRef = useRef<HTMLDivElement>(null);
   const postsRef = useRef<HTMLDivElement>(null);
-  const skillGraphRef = useRef<HTMLDivElement>(null);
+  const averageScoreRef = useRef<HTMLDivElement>(null);
   
   const widgetComponents = useMemo(() => ({
     chat: <ChatComponent/>,
     assignments: <AssignmentComponent/>,
     course: <CourseComponent/>,
     'learning-schedule': <LearningScheduleComponent/>,
-    posts: <PostComponent posts={[]}/>,
-    'skill-graph': <SkillGraphComponent/>,
+    posts: <PostComponent/>,
+    'average-score': <AverageScoreComponent/>,
   }), []);
   
   const widgetRefs = useMemo(() => ({
@@ -42,7 +42,7 @@ export const useWidgetLayout = (): UseWidgetLayoutResult => {
     course: courseRef,
     'learning-schedule': learningScheduleRef,
     posts: postsRef,
-    'skill-graph': skillGraphRef,
+    'average-score': averageScoreRef,
   }), []);
   
   const widgetConfigs = useMemo<WidgetConfig[]>(() => {
@@ -52,7 +52,7 @@ export const useWidgetLayout = (): UseWidgetLayoutResult => {
       {key: 'course', component: widgetComponents.course},
       {key: 'learning-schedule', component: widgetComponents['learning-schedule']},
       {key: 'posts', component: widgetComponents.posts},
-      {key: 'skill-graph', component: widgetComponents['skill-graph']}
+      {key: 'average-score', component: widgetComponents['average-score']},
     ];
     
     return baseWidgets.map(widget => ({
@@ -69,11 +69,12 @@ export const useWidgetLayout = (): UseWidgetLayoutResult => {
   const layout = useMemo(() => {
     if (!containerRef.current || !mounted) return [];
     
+    const activeKeys = new Set(widgetConfigs.map(widget => widget.key));
     return calculateLayout({
       screenSize,
       containerWidth: containerRef.current.offsetWidth,
-    });
-  }, [containerRef, mounted, screenSize]);
+    }).filter(item => activeKeys.has(item.i));
+  }, [containerRef, mounted, screenSize, widgetConfigs]);
   
   return {
     containerRef: containerRef as React.RefObject<HTMLDivElement>,

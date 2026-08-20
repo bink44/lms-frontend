@@ -5,28 +5,39 @@ import {useTranslation} from "react-i18next";
 import {CoursePreview} from "./components/CoursePreview";
 import {LoadingOverlay} from "@/components/LoadingOverlay";
 import {useSuspenseQuery} from "@tanstack/react-query";
-import {courseApiService} from "@/apis/services/course-api";
+import {dashboardApiService} from "@/apis/services/dashboard-api";
+import {CourseState, unwrapData} from "@/apis";
 import {useRequiredAuth} from "@/contexts/RequiredAuthContext";
+import {courseApiService} from "@/apis/services/course-api";
 
 const CourseCataloguePage: React.FC = () => {
   const {t} = useTranslation("course");
   const navigate = useNavigate();
   const {user} = useRequiredAuth();
+  const isUserAccount = user.role === 'USER';
   
-  const [activeTab, setActiveTab] = useState("My Course");
+  const [courseState, setCourseState] = useState<CourseState>('Active');
   
   return (
     <div className={styles.pageContainer}>
       <div className={styles.contentContainer}>
         <div className={styles.tabsContainer}>
-          <div
-            className={`${styles.tab} ${activeTab === "My Course" ? styles.active : ""}`}
-            onClick={() => setActiveTab("My Course")}
+          <button
+            type="button"
+            className={`${styles.tab} ${courseState === 'Active' ? styles.active : ""}`}
+            onClick={() => setCourseState('Active')}
           >
             <span className={styles.tabLabel}>
-              {t("list.tabs.myCourses")}
+              {isUserAccount ? t("list.tabs.myCourses") : 'Courses'}
             </span>
-          </div>
+          </button>
+          <button
+            type="button"
+            className={`${styles.tab} ${courseState === 'Archived' ? styles.active : ""}`}
+            onClick={() => setCourseState('Archived')}
+          >
+            <span className={styles.tabLabel}>Archived</span>
+          </button>
           
           <div className={styles.tabSpacer}/>
           
@@ -44,41 +55,81 @@ const CourseCataloguePage: React.FC = () => {
         </div>
         
         <Suspense fallback={<LoadingOverlay/>}>
-          <CoursesList/>
+          <CoursesList key={courseState} state={courseState}/>
         </Suspense>
       </div>
     </div>
   );
 };
 
-const CoursesList: React.FC = () => {
+const PAGE_SIZE = 20;
+
+const CoursesList: React.FC<{state: CourseState}> = ({state}) => {
+  const {t} = useTranslation("course");
   const {user} = useRequiredAuth();
+  const isUserAccount = user.role === 'USER';
   const [currentPage, setCurrentPage] = useState(1);
-  
-  const totalPages = 1;
-  
+
+  /**
+   * The user's own courses.
+   *
+   * Not `GET /v2/courses`: that is the tenant-wide browse listing, it answers
+   * 403 ACCESS_DENIED for any plain Student or TA, and it returns a page
+   * object rather than the array this page used to assume. `/v2/me/courses`
+   * is the endpoint every USER account can call for their own enrolments.
+   */
   const {data} = useSuspenseQuery({
-    queryKey: ['courses-list', user.id, currentPage],
+    queryKey: [isUserAccount ? 'my-courses' : 'admin-courses', user.id, state, currentPage],
     queryFn: async () => {
-      return (await courseApiService.getCourseCatalogues()).data;
+      const params = {
+        state,
+        page: currentPage - 1,
+        size: PAGE_SIZE,
+      } as const;
+      const response = isUserAccount
+        ? await dashboardApiService.getMyCourses(params)
+        : await courseApiService.browseCourses(params);
+      return unwrapData(response, isUserAccount ? 'getMyCourses' : 'browseCourses');
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
+
+  const courses = data.items ?? [];
+  const totalPages = Math.max(1, Math.ceil((data.total ?? 0) / (data.size || PAGE_SIZE)));
+
+  // IA-06 asks every list for a designed empty state. This one is reachable:
+  // a student with no active enrolments lands here straight after signing up.
+  if (courses.length === 0) {
+    return (
+      <div className={styles.emptyState}>
+        <p>{t("list.noCourses")}</p>
+      </div>
+    );
+  }
+
   return (
     <React.Fragment>
       <div className={styles.courseGrid}>
-        {data.map((course, index) => (
+        {courses.map((course) => (
           <CoursePreview
-            key={`${course.courseCode}-${index}`}
-            {...course}
+            key={course.id}
+            id={course.id}
+            courseCode={course.courseCode}
+            title={course.title}
+            state={state}
+            instructorName={course.primaryInstructor?.name ?? null}
+            // Archiving is a Course Manager action. A TA never qualifies, no
+            // matter which permission flags it holds, so this checks the
+            // enrolment role rather than any of them.
+            canManage={!isUserAccount || ('courseRole' in course && (course.courseRole ?? course.role) === 'Instructor')}
           />
         ))}
       </div>
-      
-      {data.length > 0 && (
+
+      {courses.length > 0 && (
         <div className={styles.paginationContainer}>
           <button
             className={styles.paginationButton}

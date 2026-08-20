@@ -1,0 +1,539 @@
+.page {
+    min-height: 100%;
+    padding: clamp(1rem, 4vw, 3.75rem);
+    background: t.$page-bg;
+    color: t.$text;
+}
+
+.editor {
+    width: min(900px, 100%);
+    margin: 0 auto;
+    padding: clamp(1.5rem, 4vw, 3rem);
+    border: 1px solid t.$border;
+    border-radius: t.$radius-modal;
+    background: t.$card-bg;
+    box-shadow: 0 10px 28px rgba(t.$text, 0.08);
+}
+
+.header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 2rem;
+
+    h1 {
+        margin-top: 0.25rem;
+        font-size: clamp(1.5rem, 3vw, 1.75rem);
+        line-height: 1.3;
+    }
+}
+
+.eyebrow {
+    color: t.$brand;
+    font-size: t.$fs-caption;
+    font-weight: t.$fw-semibold;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.recoveryNotice {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid t.$success-border;
+    border-radius: t.$radius-control;
+    background: t.$success-subtle;
+    color: t.$success;
+
+    > div {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 0.15rem;
+    }
+
+    strong {
+        color: t.$text;
+        font-size: t.$fs-label;
+    }
+
+    span,
+    a {
+        font-size: t.$fs-caption;
+    }
+
+    span {
+        color: t.$text-muted;
+    }
+
+    a {
+        color: t.$brand;
+        font-weight: t.$fw-semibold;
+        white-space: nowrap;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}
+
+.closeButton {
+    display: inline-grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: t.$radius-control;
+    color: t.$text-muted;
+
+    &:hover {
+        background: t.$subcard-bg;
+    }
+}
+
+.fieldGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.15rem;
+}
+
+.field {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.45rem;
+
+    > span {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        color: t.$text-muted;
+        font-size: t.$fs-caption;
+        font-weight: t.$fw-semibold;
+    }
+
+    input,
+    select,
+    textarea {
+        width: 100%;
+        border: 1px solid t.$border;
+        border-radius: t.$radius-control-sm;
+        background: t.$card-bg;
+        color: t.$text;
+        font: inherit;
+        font-size: t.$fs-label;
+        outline: none;
+
+        &:focus {
+            border-color: t.$brand;
+            box-shadow: 0 0 0 3px t.$brand-subtle;
+        }
+    }
+
+    input,
+    select {
+        min-height: 2.75rem;
+        padding: 0 0.8rem;
+    }
+
+    textarea {
+        min-height: 9rem;
+        resize: vertical;
+        padding: 0.8rem;
+        line-height: 1.55;
+    }
+}
+
+.fieldHelp {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    color: t.$text-placeholder !important;
+    font-size: 0.7rem !important;
+    font-weight: t.$fw-regular !important;
+
+    a,
+    button {
+        color: t.$brand;
+        cursor: pointer;
+        font: inherit;
+        font-weight: t.$fw-semibold;
+
+        &:hover,
+        &:focus-visible {
+            text-decoration: underline;
+        }
+    }
+}
+
+.fileTypeField {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+
+    legend {
+        margin-bottom: 0.45rem;
+        color: t.$text-muted;
+        font-size: t.$fs-caption;
+        font-weight: t.$fw-semibold;
+    }
+}
+
+.fileTypeSelect {
+    position: relative;
+
+    &[open] summary svg {
+        transform: rotate(180deg);
+    }
+
+    summary {
+        display: flex;
+        min-height: 2.75rem;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0 0.8rem;
+        border: 1px solid t.$border;
+        border-radius: t.$radius-control-sm;
+        background: t.$card-bg;
+        color: t.$text;
+        font-size: t.$fs-label;
+        cursor: pointer;
+        list-style: none;
+
+        &::-webkit-details-marker { display: none; }
+
+        &:focus-visible {
+            border-color: t.$brand;
+            outline: 3px solid t.$brand-subtle;
+            outline-offset: 1px;
+        }
+
+        svg { flex: 0 0 auto; transition: transform 0.15s ease; }
+    }
+}
+
+.fileTypeMenu {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 0.4rem);
+    left: 0;
+    width: min(34rem, calc(100vw - 2rem));
+    max-height: min(28rem, 60vh);
+    overflow-y: auto;
+    padding: 0.75rem;
+    border: 1px solid t.$border;
+    border-radius: t.$radius-control;
+    background: t.$card-bg;
+    box-shadow: 0 14px 34px rgba(t.$text, 0.14);
+}
+
+.fileTypeActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-bottom: 0.55rem;
+
+    button {
+        min-height: 2rem;
+        padding: 0 0.6rem;
+        border: 1px solid t.$border;
+        border-radius: t.$radius-control-sm;
+        color: t.$brand;
+        font-size: 0.72rem;
+        font-weight: t.$fw-semibold;
+        cursor: pointer;
+
+        &:hover { background: t.$brand-subtle; }
+    }
+}
+
+.fileTypeGroup {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
+    padding: 0.55rem 0;
+    border-top: 1px solid t.$border;
+
+    > p {
+        grid-column: 1 / -1;
+        margin: 0 0 0.15rem;
+        color: t.$text-muted;
+        font-size: 0.7rem;
+        font-weight: t.$fw-semibold;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    label {
+        display: grid;
+        grid-template-columns: auto auto minmax(0, 1fr);
+        align-items: center;
+        gap: 0.45rem;
+        min-width: 0;
+        padding: 0.45rem 0.5rem;
+        border-radius: t.$radius-control-sm;
+        color: t.$text;
+        font-size: 0.76rem;
+        cursor: pointer;
+
+        &:hover { background: t.$subcard-bg; }
+
+        input { width: 1rem; min-height: 1rem; height: 1rem; padding: 0; accent-color: t.$brand; }
+        strong { color: t.$brand; }
+        span { min-width: 0; overflow: hidden; color: t.$text-muted; text-overflow: ellipsis; white-space: nowrap; }
+    }
+}
+
+.fileTypeHelp {
+    margin-top: 0.4rem;
+    color: t.$text-placeholder;
+    font-size: 0.7rem;
+}
+
+.titleField,
+.fullWidth {
+    grid-column: 1 / -1;
+}
+
+.titleField input {
+    min-height: 3.5rem;
+    border: 0;
+    border-bottom: 1px solid t.$border;
+    border-radius: 0;
+    padding-inline: 0;
+    font-size: 1.5rem;
+    font-weight: t.$fw-semibold;
+
+    &:focus {
+        box-shadow: none;
+    }
+}
+
+.uploadArea {
+    display: flex;
+    min-height: 5.5rem;
+    align-items: center;
+    gap: 0.9rem;
+    margin-top: 1.5rem;
+    padding: 1rem;
+    border: 1px dashed t.$border;
+    border-radius: t.$radius-control;
+    color: t.$text-muted;
+    cursor: pointer;
+
+    strong {
+        color: t.$brand;
+    }
+
+    small {
+        margin-left: auto;
+        color: t.$text-placeholder;
+        font-size: 0.7rem;
+    }
+
+    input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+    }
+
+    &:hover {
+        border-color: t.$brand;
+        background: t.$subcard-bg;
+    }
+}
+
+.pendingFiles {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+
+    li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.55rem 0.75rem;
+        border-radius: t.$radius-control-sm;
+        background: t.$subcard-bg;
+        font-size: t.$fs-caption;
+    }
+
+    button {
+        display: inline-grid;
+        place-items: center;
+        color: t.$text-muted;
+        cursor: pointer;
+    }
+}
+
+.existingAttachments {
+    margin-top: 1rem;
+
+    > p {
+        margin-bottom: 0.55rem;
+        color: t.$text-muted;
+        font-size: t.$fs-caption;
+        font-weight: t.$fw-semibold;
+    }
+
+    ul {
+        display: grid;
+        gap: 0.5rem;
+    }
+
+    li {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto auto;
+        align-items: center;
+        gap: 0.65rem;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid t.$border;
+        border-radius: t.$radius-control-sm;
+        background: t.$subcard-bg;
+        color: t.$text-muted;
+        font-size: t.$fs-caption;
+    }
+
+    a,
+    button {
+        min-width: 0;
+        overflow: hidden;
+        color: t.$text;
+        font: inherit;
+        font-weight: t.$fw-semibold;
+        text-align: left;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+
+        &:hover:not(:disabled) {
+            color: t.$brand;
+            text-decoration: underline;
+        }
+
+        &:disabled { cursor: wait; opacity: 0.6; }
+    }
+}
+
+.existingAttachments .deleteAttachmentButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: t.$danger;
+    font-weight: t.$fw-semibold;
+}
+
+.error {
+    margin-top: 1rem;
+    color: t.$danger;
+    font-size: t.$fs-caption;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid t.$border;
+}
+
+.primaryButton,
+.secondaryButton {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0 1.25rem;
+    border-radius: t.$radius-control-sm;
+    font-size: t.$fs-label;
+    font-weight: t.$fw-semibold;
+    cursor: pointer;
+
+    &:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+    }
+}
+
+.primaryButton {
+    border: 1px solid t.$brand;
+    background: t.$brand;
+    color: t.$card-bg;
+}
+
+.secondaryButton {
+    border: 1px solid t.$border;
+    background: t.$card-bg;
+    color: t.$text;
+}
+
+.backLink {
+    display: flex;
+    width: fit-content;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 1rem auto 0;
+    color: t.$text-muted;
+    font-size: t.$fs-caption;
+}
+
+.status {
+    display: grid;
+    min-height: 60vh;
+    place-items: center;
+    padding: 2rem;
+    background: t.$page-bg;
+    color: t.$text-muted;
+}
+
+@media (max-width: 720px) {
+    .fieldGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .titleField,
+    .fullWidth {
+        grid-column: auto;
+    }
+
+    .uploadArea {
+        align-items: flex-start;
+        flex-direction: column;
+
+        small {
+            margin-left: 0;
+        }
+    }
+
+    .actions {
+        align-items: stretch;
+        flex-direction: column-reverse;
+    }
+
+    .recoveryNotice {
+        grid-template-columns: auto minmax(0, 1fr);
+
+        a {
+            grid-column: 2;
+        }
+    }
+
+    .fileTypeMenu {
+        width: 100%;
+    }
+
+    .fileTypeGroup {
+        grid-template-columns: 1fr;
+
+        > p { grid-column: auto; }
+    }
+}

@@ -11,6 +11,19 @@
         "newContent": "新建内容",
         "linesPerPage": "每页行数"
     },
+    "card": {
+        "instructor": "授课教师",
+        "classTime": "上课时间",
+        "classroom": "教室",
+        "viewDetails": "查看详情",
+        "moreActions": "更多操作",
+        "archive": "归档课程",
+        "archiving": "正在归档…",
+        "archiveFailed": "课程归档失败，请重试。",
+        "weeksSingular": "周",
+        "weeksPlural": "周",
+        "deleteCourse": "删除课程"
+    },
     "days": {
         "monday": "星期一",
         "tuesday": "星期二",
@@ -21,6 +34,7 @@
         "sunday": "星期日"
     },
     "detail": {
+        "backToDashboard": "返回首页",
         "students": "学生",
         "teacher": "教师",
         "assignments": "作业",
@@ -31,13 +45,15 @@
         "unitPlaceholder": "单元",
         "manageGroup": "管理小组",
         "editCourse": "编辑课程",
+        "manageContent": "管理内容",
         "courseSummary": "课程概览",
         "weeklySummary": "每周概览",
         "aiHelperHint": "开始输入，按空格键唤起 AI，输入 / 查看命令。",
         "filterByLabel": "按标签筛选：",
         "filterAll": "全部",
         "searchAssignmentsPlaceholder": "按名称搜索作业……",
-        "untitledPagePlaceholder": "未命名页面"
+        "untitledPagePlaceholder": "未命名页面",
+        "publishUnavailable": "目前只能按周发布，暂不支持整门课程发布。"
     },
     "form": {
         "titleLabel": "课程标题",
@@ -47,19 +63,6 @@
         "endDateLabel": "结束日期",
         "createButton": "创建课程",
         "updateButton": "更新课程"
-    },
-    "card": {
-        "instructorLabel": "授课老师",
-        "weeksSingular": "周",
-        "weeksPlural": "周",
-        "classTimeHeader": "上课时间",
-        "classroomHeader": "教室",
-        "viewDetails": "查看详情",
-        "shareCourse": "分享课程",
-        "deleteCourse": "删除课程",
-        "deleteConfirm": "确定要删除 “{{title}}” 吗？",
-        "deleteFailed": "删除课程失败。",
-        "deleteSuccess": "课程已成功删除。"
     },
     "downloads": {
         "sectionTitleAll": "全部课程内容下载",
@@ -256,7 +259,7 @@
         "noFeedback": "暂无反馈。",
         "feedbackNotPublished": "反馈尚未发布。",
         "back": "返回",
-        "loading": "加载中\u2026",
+        "loading": "加载中…",
         "dash": "-"
     },
     "assignmentTeacher": {

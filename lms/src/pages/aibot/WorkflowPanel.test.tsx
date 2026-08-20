@@ -1,0 +1,137 @@
+import {beforeEach, describe, expect, it, vi} from 'vitest';
+import '@testing-library/jest-dom';
+import {render, screen, waitFor, within} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+
+const agentApi = vi.hoisted(() => ({
+  chat: vi.fn(),
+  decideDeadlineChange: vi.fn(),
+}));
+const auth = vi.hoisted(() => ({
+  user: {id: 42, name: 'Teacher', level: 'INSTRUCTOR'},
+}));
+
+vi.mock('@/apis/services/ai-agent-api', () => ({aiAgentApiService: agentApi}));
+vi.mock('@/contexts/RequiredAuthContext', () => ({
+  useRequiredAuth: () => ({user: auth.user}),
+}));
+
+import WorkflowPanel from './WorkflowPanel';
+
+describe('WorkflowPanel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    auth.user = {id: 42, name: 'Teacher', level: 'INSTRUCTOR'};
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  it('keeps deadline changes out of the student workflow', async () => {
+    auth.user = {id: 43, name: 'Student', level: 'STUDENT'};
+    agentApi.chat.mockResolvedValue({
+      reply: 'Allow this deadline change?',
+      pendingAction: {actionId: 'action-student', type: 'ASSIGNMENT_DEADLINE_CHANGE'},
+    });
+    const user = userEvent.setup();
+    render(<WorkflowPanel/>);
+
+    expect(screen.queryByRole('button', {name: 'Help me change an assignment deadline.'}))
+      .not.toBeInTheDocument();
+    expect(screen.getByText('Student workflow')).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Tell Workflow what to do'), 'Change the assignment deadline');
+    await user.click(screen.getByRole('button', {name: 'Run'}));
+
+    await waitFor(() => expect(agentApi.chat).toHaveBeenCalledWith({
+      message: 'Change the assignment deadline',
+      role: 'STUDENT',
+    }));
+    expect(await screen.findByText('Students can view assignment deadlines, but only instructors can change them.'))
+      .toBeInTheDocument();
+    expect(screen.queryByRole('dialog', {name: 'Deadline change approval'})).not.toBeInTheDocument();
+    expect(agentApi.decideDeadlineChange).not.toHaveBeenCalled();
+  });
+
+  it('sends instructor prompts to the AI Agent', async () => {
+    agentApi.chat.mockResolvedValue({reply: 'You teach two courses.', pendingAction: null});
+    const user = userEvent.setup();
+    render(<WorkflowPanel/>);
+
+    await user.click(screen.getByRole('button', {name: 'List my courses.'}));
+
+    await waitFor(() => expect(agentApi.chat).toHaveBeenCalledWith({
+      message: 'List my courses.',
+      role: 'INSTRUCTOR',
+    }));
+    expect(await screen.findByText('You teach two courses.')).toBeInTheDocument();
+  });
+
+  it('renders markdown in agent replies instead of showing asterisks', async () => {
+    agentApi.chat.mockResolvedValue({
+      reply: '**Active**\nCSCI-310 — Applied Database Systems\n\n- **Pending:** None\n- **Submitted:** 1',
+      pendingAction: null,
+    });
+    const user = userEvent.setup();
+    render(<WorkflowPanel/>);
+
+    await user.click(screen.getByRole('button', {name: 'List my courses.'}));
+
+    const activeHeading = await screen.findByText('Active');
+    expect(activeHeading.tagName).toBe('STRONG');
+    expect(screen.queryByText('**Active**')).not.toBeInTheDocument();
+    expect(screen.getByText(/CSCI-310/)).toBeInTheDocument();
+
+    const pendingLabel = screen.getByText('Pending:');
+    expect(pendingLabel.tagName).toBe('STRONG');
+    expect(pendingLabel.closest('li')).toHaveTextContent('Pending: None');
+    expect(screen.getByText('Submitted:').closest('li')).toHaveTextContent('Submitted: 1');
+    expect(screen.queryByText(/\*\*Pending:\*\*/)).not.toBeInTheDocument();
+  });
+
+  it('requires an explicit Allow or Reject decision for a pending change', async () => {
+    agentApi.chat.mockResolvedValue({
+      reply: 'Change Assignment A from August 26 to August 27?',
+      pendingAction: {actionId: 'action-123', type: 'ASSIGNMENT_DEADLINE_CHANGE'},
+    });
+    agentApi.decideDeadlineChange.mockResolvedValue({
+      reply: 'The deadline change was rejected.',
+      pendingAction: null,
+    });
+    const user = userEvent.setup();
+    render(<WorkflowPanel/>);
+
+    await user.type(screen.getByLabelText('Tell Workflow what to do'), 'Move Assignment A');
+    await user.click(screen.getByRole('button', {name: 'Run'}));
+
+    const dialog = await screen.findByRole('dialog', {name: 'Deadline change approval'});
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(within(dialog).getByText('Change Assignment A from August 26 to August 27?')).toBeInTheDocument();
+    expect(within(dialog).getByText('The deadline has not changed yet.')).toBeInTheDocument();
+    expect(within(dialog).queryByText(/late submission window/i)).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', {name: 'Reject'}));
+
+    await waitFor(() => expect(agentApi.decideDeadlineChange).toHaveBeenCalledWith({
+      actionId: 'action-123',
+      decision: 'REJECT',
+    }));
+    expect(await screen.findByText('The deadline change was rejected.')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('keeps the approval dialog open when the deadline update fails', async () => {
+    agentApi.chat.mockResolvedValue({
+      reply: 'Move Assignment A to August 27 and clear its late window?',
+      pendingAction: {actionId: 'action-456', type: 'ASSIGNMENT_DEADLINE_CHANGE'},
+    });
+    agentApi.decideDeadlineChange.mockRejectedValue(new Error('The LMS rejected this deadline change.'));
+    const user = userEvent.setup();
+    render(<WorkflowPanel/>);
+
+    await user.click(screen.getByRole('button', {name: 'Help me change an assignment deadline.'}));
+    const dialog = await screen.findByRole('dialog', {name: 'Deadline change approval'});
+    await user.click(within(dialog).getByRole('button', {name: 'Allow'}));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('The LMS rejected this deadline change.');
+    expect(within(dialog).getByRole('button', {name: 'Reject'})).toBeEnabled();
+    expect(screen.getByRole('dialog', {name: 'Deadline change approval'})).toBeInTheDocument();
+  });
+});

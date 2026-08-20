@@ -3,17 +3,43 @@ import {useNavigate} from 'react-router-dom';
 import {Icon} from '@iconify/react';
 import {useAuth} from "@/contexts/AuthContext";
 import {useTranslation} from 'react-i18next';
-import {LoginResponse, V2ApiClient} from "@/apis";
+import {ApiError, AUTH_ERROR_CODES, LoginAccountType, V2ApiClient} from "@/apis";
+import {authApiService} from "@/apis/services/auth-api";
+
+type ResolvableLoginRole = Extract<LoginAccountType, 'USER' | 'ADMIN'>;
+
+const LOGIN_ROLE_STORAGE_KEY = 'preferredLoginRole';
+const LOGIN_ROLES: ResolvableLoginRole[] = ['USER', 'ADMIN'];
+
+const getLoginRoleOrder = (): ResolvableLoginRole[] => {
+  const preferredRole = localStorage.getItem(LOGIN_ROLE_STORAGE_KEY) as ResolvableLoginRole | null;
+  if (!preferredRole || !LOGIN_ROLES.includes(preferredRole)) return LOGIN_ROLES;
+  return [preferredRole, ...LOGIN_ROLES.filter((role) => role !== preferredRole)];
+};
+
+export const getLoginErrorKind = (error: unknown): 'credentials' | 'unavailable' | 'unexpected' => {
+  const apiError = error as ApiError | undefined;
+  const responseCode = apiError?.details?.code;
+
+  if (responseCode === AUTH_ERROR_CODES.invalidCredentials) return 'credentials';
+  if (
+    responseCode === AUTH_ERROR_CODES.serviceUnavailable
+    || apiError?.code === 0
+    || (typeof apiError?.code === 'number' && apiError.code >= 500)
+  ) {
+    return 'unavailable';
+  }
+  return 'unexpected';
+};
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const getFieldError = (field: string) => fieldErrors[field] || '';
-  const [rememberMe, setRememberMe] = useState(false);
-  const API_DOMAIN = import.meta.env.VITE_SIGNUP_API_DOMAIN_NAME;
-  const {login} = useAuth();
+  const {login, user} = useAuth();
   
   const navigate = useNavigate();
   const {t} = useTranslation("auth");
@@ -32,94 +58,93 @@ const LoginPage: React.FC = () => {
   }, [navigate]);
   
   useEffect(() => {
-    const savedAccount = localStorage.getItem('account');
-    if (savedAccount) {
-      const parsedAccount = JSON.parse(savedAccount);
-      const accessToken = localStorage.getItem('accToken');
-      if (parsedAccount.token && accessToken !== null) {
-        V2ApiClient.setAccessToken(accessToken);
-        navigate('/');
-      }
+    if (user) {
+      navigate(user.role === 'USER' ? '/' : '/course', {replace: true});
     }
-  }, [navigate]);
-  
-  const handleMicrosoftLogin = async () => {
-    try {
-      window.location.href = `${API_DOMAIN}/thirdParty/microsoft`;
-    } catch (e) {
-      console.error("Error getting Microsoft login URL:", e);
-    }
-  };
-  
-  const handleLinkedInLogin = async () => {
-    try {
-      window.location.href = `${API_DOMAIN}/thirdParty/linkedin`;
-    } catch (e) {
-      console.error("Error getting LinkedIn login URL:", e);
-    }
-  };
-  
-  const handleGoogleLogin = async () => {
-    try {
-      window.location.href = `${API_DOMAIN}/thirdParty/google`;
-    } catch (e) {
-      console.error("Error getting Google login URL:", e);
-    }
-  };
-  
-  const handleFacebookLogin = async () => {
-    try {
-      window.location.href = `${API_DOMAIN}/thirdParty/facebook`;
-    } catch (e) {
-      console.error("Error getting Facebook login URL:", e);
-    }
-  };
-  
+  }, [navigate, user]);
   
   const handleSubmit: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
     setFieldErrors({});
+    setIsSubmitting(true);
     
     try {
-      const response = await V2ApiClient.post<LoginResponse>("/login", {
-        email,
-        password,
-        role: 'USER'
-      });
-      
-      if (response.code === 200) {
-        login(response.data);
-        V2ApiClient.setAccessToken(response.data.nwAccessToken);
-        localStorage.setItem('accToken', response.data.nwAccessToken);
-        navigate('/');
+      const normalizedEmail = email.trim();
+      let response;
+      let resolvedRole: ResolvableLoginRole | null = null;
+      let lastError: unknown;
+
+      // The current backend contract still requires an account table even
+      // though account type is not a user-facing login decision. Try the most
+      // recently successful table first, then the other supported table, and
+      // only fall back after an explicit INVALID_CREDENTIALS response.
+      for (const role of getLoginRoleOrder()) {
+        try {
+          response = await authApiService.login({email: normalizedEmail, password, role});
+          resolvedRole = role;
+          break;
+        } catch (error) {
+          lastError = error;
+          if (getLoginErrorKind(error) !== 'credentials') throw error;
+        }
+      }
+
+      if (!response || !resolvedRole) throw lastError;
+
+      if (response.status === 200 && response.data) {
+        const auth = response.data;
+
+        // Managed users (every instructor, since ops creates those accounts)
+        // land here on first login, and the backend then 403s every business
+        // API until the password changes. There is no screen for this yet —
+        // open-decisions.md Q-16 — so refuse the session rather than drop the
+        // user into an app where nothing works.
+        if (auth.mustChangePassword) {
+          setFieldErrors({password: t("errors.passwordChangeRequired")});
+          return;
+        }
+
+        login({...auth, id: auth.userId});
+        V2ApiClient.setAccessToken(auth.accessToken);
+        localStorage.setItem(LOGIN_ROLE_STORAGE_KEY, resolvedRole);
+        localStorage.setItem('accToken', auth.accessToken);
+        navigate(auth.role === 'USER' ? '/' : '/course');
         return;
       }
-      
-      if (response.code === 6001) {
-        setFieldErrors({password: t("errors.accountLocked")});
-      } else if (response.code === 4021) {
-        setFieldErrors({email: t("errors.userNotExist")});
-      } else if (response.code === 6003) {
-        setFieldErrors({password: t("errors.passwordMismatch")});
-      }
-    } catch (err) {
-      console.log('Login Failed', err);
+
       setFieldErrors({password: t("errors.unexpected")});
+    } catch (err) {
+      // The API answers wrong password, unknown account and locked-out all as
+      // INVALID_CREDENTIALS on purpose (NFR-15). Do not try to tell the user
+      // which one it was — the frontend cannot know, and guessing would leak
+      // whether an account exists.
+      const errorKind = getLoginErrorKind(err);
+
+      if (errorKind === 'credentials') {
+        setFieldErrors({password: t("errors.invalidCredentials")});
+      } else if (errorKind === 'unavailable') {
+        setFieldErrors({password: t("errors.serviceUnavailable")});
+      } else {
+        console.error('Login failed', err);
+        setFieldErrors({password: t("errors.unexpected")});
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
   
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-white text-gray-900 px-4 overflow-auto">
-      <div className="w-full max-w-[1500px] grid grid-cols-1 lg:grid-cols-[55%_45%] gap-10 rounded-xl">
+    <main className="min-h-screen overflow-y-auto bg-white px-4 py-6 text-gray-900 sm:px-8 lg:flex lg:items-center">
+      <div className="mx-auto grid w-full max-w-[1500px] grid-cols-1 items-stretch gap-8 lg:grid-cols-[55%_45%] lg:gap-10">
         {/* Left side image */}
-        <div className="sp-2 flex flex-col items-center justify-center">
-          <img src="/icons/login/login-img.png" alt="Coursistant UI"
-               className="w-full h-[95%] object-cover rounded-2xl"/>
+        <div className="hidden items-center justify-center lg:flex" aria-hidden="true">
+          <img src="/icons/login/login-img.png" alt=""
+               className="max-h-[calc(100vh-48px)] w-full rounded-2xl object-cover"/>
         </div>
         
         {/* Right side form */}
-        <div className="mx-auto flex flex-col justify-center min-h-[600px] w-[512px]">
+        <section className="mx-auto flex min-h-[calc(100vh-48px)] w-full max-w-[512px] flex-col justify-center py-6">
           <h2 className="text-3xl sm:text-4xl mb-6 text-gray-800">
             {t("login.title")}
           </h2>
@@ -127,81 +152,59 @@ const LoginPage: React.FC = () => {
             {t("login.subtitle")}
           </p>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-            <button onClick={handleGoogleLogin}
-                    className="flex items-center justify-center gap-2 bg-[#F3F4F8] text-black py-3 rounded-lg text-sm font-normal cursor-pointer">
-              <Icon icon="flat-color-icons:google" className="w-5 h-5"/>
-              {t("login.socialGoogle")}
-            </button>
-            <button onClick={handleMicrosoftLogin}
-                    className="flex items-center justify-center gap-2 bg-[#F3F4F8] text-black py-3 rounded-lg text-sm font-normal cursor-pointer">
-              <Icon icon="logos:microsoft-icon" className="w-5 h-5"/>
-              {t("login.socialMicrosoft")}
-            </button>
-            <button onClick={handleLinkedInLogin}
-                    className="flex items-center justify-center gap-2 bg-[#F3F4F8] text-black py-3 rounded-lg text-sm font-normal cursor-pointer">
-              <Icon icon="logos:linkedin-icon" className="w-5 h-5"/>
-              {t("login.socialLinkedIn")}
-            </button>
-            <button onClick={handleFacebookLogin}
-                    className="flex items-center justify-center gap-2 bg-[#F3F4F8] text-black py-3 rounded-lg text-sm font-normal cursor-pointer">
-              <Icon icon="logos:facebook" className="w-5 h-5"/>
-              {t("login.socialFacebook")}
-            </button>
-          </div>
-          
-          <div className="flex items-center gap-2 my-4">
-            <div className="flex-1 border-t border-[#E2E8F0]"></div>
-            <p className="text-xs text-[#2D3748]">{t("login.dividerText")}</p>
-            <div className="flex-1 border-t border-[#E2E8F0]"></div>
-          </div>
-          
           <form className="space-y-4 mt-6" onSubmit={handleSubmit}>
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={t("login.emailPlaceholder")}
-              className={`w-full px-4 py-3 rounded-lg bg-white border text-gray-900 text-sm focus:outline-none mb-6 ${getFieldError('email') ? 'border-red-500' : 'border-gray-300 focus:border-[#566FE8]'
-              }`}
-              required
-            />
-            {getFieldError('email') && (
-              <p className="text-red-400 text-[12px] text-right mt-[-20px]">{getFieldError('email')}</p>
-            )}
-            <div className="relative">
+            <div>
+              <label htmlFor="login-email" className="block text-sm font-medium text-[#2D3748] mb-2">
+                {t("login.emailLabel")}
+              </label>
               <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={t("login.passwordPlaceholder")}
-                className={`w-full px-4 py-3 rounded-lg bg-white border text-gray-900 text-sm focus:outline-none ${getFieldError('password') ? 'border-red-500' : 'border-gray-300 focus:border-[#566FE8]'}`}
+                id="login-email"
+                type="email"
+                autoComplete="username"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t("login.emailPlaceholder")}
+                className={`w-full px-4 py-3 rounded-lg bg-white border text-gray-900 text-sm focus:outline-none ${getFieldError('email') ? 'border-red-500' : 'border-gray-300 focus:border-[#566FE8]'
+                }`}
                 required
               />
-              
-              <div className="absolute inset-y-0 right-3 flex items-center">
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-gray-500 hover:text-gray-700 cursor-pointer"
-                >
-                  <Icon icon={showPassword ? 'eva:eye-fill' : 'eva:eye-off-fill'} width={20} height={20}/>
-                </button>
-              </div>
+              {getFieldError('email') && (
+                <p role="alert" className="text-red-400 text-[12px] text-right mt-1">{getFieldError('email')}</p>
+              )}
             </div>
-            {getFieldError('password') && (
-              <p className="text-red-400 text-[12px] text-right mt-[-0.75rem] mb-6">{getFieldError('password')}</p>
-            )}
-            
-            <div className="flex flex-wrap items-center justify-between text-sm gap-2">
-              <label className="flex items-center text-[#A0AEC0]">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="mr-2 border-[#A0AEC0] rounded accent-[#566FE8] cursor-pointer"
-                />
-                {t("login.rememberForDays")}
+            <div>
+              <label htmlFor="login-password" className="block text-sm font-medium text-[#2D3748] mb-2">
+                {t("login.passwordLabel")}
               </label>
+              <div className="relative">
+                <input
+                  id="login-password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={t("login.passwordPlaceholder")}
+                  className={`w-full px-4 py-3 rounded-lg bg-white border text-gray-900 text-sm focus:outline-none ${getFieldError('password') ? 'border-red-500' : 'border-gray-300 focus:border-[#566FE8]'}`}
+                  required
+                />
+
+                <div className="absolute inset-y-0 right-3 flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? t("login.hidePassword") : t("login.showPassword")}
+                    className="text-gray-500 hover:text-gray-700 cursor-pointer"
+                  >
+                    <Icon icon={showPassword ? 'eva:eye-fill' : 'eva:eye-off-fill'} width={20} height={20}/>
+                  </button>
+                </div>
+              </div>
+              {getFieldError('password') && (
+                <p role="alert" className="text-red-400 text-[12px] text-right mt-1">{getFieldError('password')}</p>
+              )}
+            </div>
+            
+            <div className="flex justify-end text-sm">
               <a href="/forgotpassword" className=" text-[14px] text-[#566FE8] text-sm hover:underline">
                 {t("login.forgotPassword")}
               </a>
@@ -209,7 +212,8 @@ const LoginPage: React.FC = () => {
             
             <button
               type="submit"
-              className="w-full py-3 rounded-lg bg-[#566FE8] hover:bg-[#7F9CF5] text-white text-sm mt-8 cursor-pointer"
+              disabled={isSubmitting}
+              className="w-full py-3 rounded-lg bg-[#566FE8] hover:bg-[#7F9CF5] disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm mt-8 cursor-pointer"
             >
               {t("login.logIn")}
             </button>
@@ -223,9 +227,9 @@ const LoginPage: React.FC = () => {
                  navigate('/signup');
                }}>{t("login.signUp")}</a>
           </p>
-        </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
 
